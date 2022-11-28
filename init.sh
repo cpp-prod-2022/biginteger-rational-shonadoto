@@ -6,7 +6,7 @@ git remote | grep template > /dev/null
 has_remote=$?
 if [ ! "0" -eq $has_remote ]; then
     echo "adding template repo to git"
-    git remote add template git@github.com:cpp-prod-2022/bigint.git
+    git remote add template git@github.com:cpp-prod-2022/biginteger.git
 fi
 
 git fetch --all
