@@ -11,6 +11,7 @@ fi
 
 git fetch --all
 git merge template/master --allow-unrelated-histories
+git merge origin/master --allow-unrelated-histories
 
 echo "Setting up pre-push hooks"
 cp test.sh .git/hooks/pre-push
