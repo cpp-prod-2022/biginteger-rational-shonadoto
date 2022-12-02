@@ -1,0 +1,24 @@
+{
+  "tests": [
+    {
+      "name": "check file integrity",
+      "setup": "",
+      "run": "echo \"0dc4f19f461500d47d0df614aeebe99b0e9597279786bdfbdcbe1f9cd19c328b  checksums\" | sha256sum -c",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 1,
+      "points": null
+    },
+    {
+      "name": "compile test and check codestyle",
+      "setup": "",
+      "run": "./test.sh",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 2,
+      "points": null
+    }
+  ]
+}
