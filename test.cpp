@@ -90,7 +90,7 @@ TestGroup all_tests[] = {
             bigint -= -2;
             test.check(bigint == 1);
 
-            int small_number = std::numeric_limits<int>::min() + 1;
+            int small_number = -std::numeric_limits<int>::min() + 1;
             bigint = small_number;
             bigint -= 2;
             test.check(small_number > bigint);
