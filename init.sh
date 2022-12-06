@@ -18,7 +18,7 @@ cp test.sh .git/hooks/pre-push
 
 if [ ! -e compile_commands.json ]; then
     echo "Generating compile_commands.json"
-    ./build.sh
+    ./build.sh > /dev/null
     ln -s build/compile_commands.json compile_commands.json
 fi
 
