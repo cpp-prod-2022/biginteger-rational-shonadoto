@@ -20,7 +20,7 @@ TestStage () {
    fail=$3
    echo ""
    echo "executing \"$cmd\""
-   if $cmd > $stage_log_file 2>$stage_log_file; then
+   if $cmd > $stage_log_file 2>&1; then
        AppendToLog "$cmd"
        echo $success
        exit_code=$((exit_code+1))
