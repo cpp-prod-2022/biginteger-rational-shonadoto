@@ -213,7 +213,6 @@ BigInteger::BigInteger(const std::string& inp_str)
     buf[buf_index] = 0;
     std::reverse(buf.begin(), buf.begin() + static_cast<int>(buf_index));
     digits_.push_back(std::stoi(buf));
-    buf_index = 0;
   }
   fixDigits();
 }
@@ -767,4 +766,6 @@ std::string Rational::asDecimal(size_t precision) const {
   return ret;
 }
 
-Rational::operator double() const { return std::stod(asDecimal(40)); }
+Rational::operator double() const { 
+    const size_t precision = 40;
+    return std::stod(asDecimal(precision)); }
