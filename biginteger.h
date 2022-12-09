@@ -445,8 +445,8 @@ BigInteger& operator*=(BigInteger& lhs, const BigInteger& rhs) {
   BigInteger::fft(left, true);
   lhs.digits_.resize(left.size());
   long long digit = 0;
-  const double MAGIC_NUMBER =
-      0.5 for (size_t index = 0; index < left.size(); ++index) {
+  const double MAGIC_NUMBER = 0.5;
+  for (size_t index = 0; index < left.size(); ++index) {
     digit +=
         static_cast<long long>(std::floor(left[index].real() + MAGIC_NUMBER));
     lhs.digits_[index] = static_cast<int>(digit % BigInteger::BASE);
