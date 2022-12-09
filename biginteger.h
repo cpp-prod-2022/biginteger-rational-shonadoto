@@ -1,4 +1,5 @@
 #pragma once
+#include <algorithm>
 #include <compare>
 #include <complex>
 #include <cstring>
@@ -444,8 +445,10 @@ BigInteger& operator*=(BigInteger& lhs, const BigInteger& rhs) {
   BigInteger::fft(left, true);
   lhs.digits_.resize(left.size());
   long long digit = 0;
-  for (size_t index = 0; index < left.size(); ++index) {
-    digit += static_cast<long long>(std::floor(left[index].real() + 0.5));
+  const double MAGIC_NUMBER =
+      0.5 for (size_t index = 0; index < left.size(); ++index) {
+    digit +=
+        static_cast<long long>(std::floor(left[index].real() + MAGIC_NUMBER));
     lhs.digits_[index] = static_cast<int>(digit % BigInteger::BASE);
     digit /= BigInteger::BASE;
   }
@@ -468,15 +471,17 @@ std::string BigInteger::toString(bool leading_zeros = false) const {
   // // std::cerr << "toString";
   std::stringstream ss;
   if (!is_positive_) ss << "-";
-  if (!leading_zeros)
+  if (!leading_zeros) {
     ss << digits_[digits_.size() - 1];
-  else
+  } else {
     ss << std::setw(DEC_POW) << std::setfill('0')
        << digits_[digits_.size() - 1];
-  if (digits_.size() > 1)
+  }
+  if (digits_.size() > 1) {
     for (size_t index = digits_.size() - 1; index > 0; --index) {
       ss << std::setw(DEC_POW) << std::setfill('0') << digits_[index - 1];
     }
+  }
   return ss.str();
 }
 
@@ -533,10 +538,11 @@ BigInteger& operator/=(BigInteger& lhs, const BigInteger& rhs) {
     int left = 0, right = BigInteger::BASE;
     while (left + 1 < right) {
       int mid = (left + right) / 2;
-      if (calc.absCmp(abs(rhs.stupidMult(mid))))
+      if (calc.absCmp(abs(rhs.stupidMult(mid)))) {
         right = mid;
-      else
+      } else {
         left = mid;
+      }
     }
     int digit = left;
 
