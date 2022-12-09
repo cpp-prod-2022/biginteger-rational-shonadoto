@@ -1,6 +1,5 @@
 #pragma once
 
-#pragma once
 #include <compare>
 #include <complex>
 #include <cstring>
