@@ -41,8 +41,7 @@ class BigInteger {
   BigInteger& operator+=(const BigInteger&);
   BigInteger& operator-=(const BigInteger&);
   BigInteger& operator*=(const BigInteger&);
-  //BigInteger& operator/=(const BigInteger&);
-  friend BigInteger& operator/=(BigInteger&, const BigInteger&);
+  BigInteger& operator/=(const BigInteger&);
   BigInteger& operator%=(const BigInteger&);
 
   std::string toString(bool) const;
@@ -460,33 +459,32 @@ BigInteger BigInteger::stupidMult(int number) const {
   return tmp;
 }
 
-BigInteger& operator/=(BigInteger& lhs, const BigInteger& rhs) {
-  // // std::cerr << "/=";
-  if (&lhs == &rhs) return lhs = 1;
-  if (lhs.absCmp(rhs) == std::strong_ordering::less) return lhs = 0;
+BigInteger& BigInteger::operator/=(const BigInteger& rhs) {
+  if (&*this == &rhs) return *this = 1;
+  if (absCmp(rhs) == std::strong_ordering::less) return *this = 0;
   if (rhs.isZero()) {
     throw "BigInteger: Division by zero.";
   }
   BigInteger calc;
   BigInteger ans;
   BigInteger shift;
-  bool l_sign = lhs.is_positive_, r_sign = rhs.is_positive_;
+  bool l_sign = is_positive_, r_sign = rhs.is_positive_;
   ans.digits_.resize(0);
-  shift.digits_.resize(lhs.digitsSize() - rhs.digitsSize() + 1, 0);
+  shift.digits_.resize(digitsSize() - rhs.digitsSize() + 1, 0);
 
-  while (lhs.absCmp(rhs) >= 0) {
+  while (absCmp(rhs) >= 0) {
     calc.digits_.resize(rhs.digitsSize());
-    std::copy(lhs.digits_.begin() + static_cast<int>(lhs.digitsSize()) -
+    std::copy(digits_.begin() + static_cast<int>(digitsSize()) -
                   static_cast<int>(calc.digitsSize()),
-              lhs.digits_.end(), calc.digits_.begin());
+              digits_.end(), calc.digits_.begin());
     while (calc.absCmp(rhs) == std::strong_ordering::less) {
       calc.digits_.insert(
           calc.digits_.begin(),
-          lhs.digits_[lhs.digitsSize() - calc.digitsSize() - 1]);
+          digits_[digitsSize() - calc.digitsSize() - 1]);
     }
 
     for (size_t i = 0;
-         i + lhs.digitsSize() + 2 < shift.digitsSize() + calc.digitsSize(); ++i)
+         i + digitsSize() + 2 < shift.digitsSize() + calc.digitsSize(); ++i)
       ans.digits_.push_back(0);
 
     int left = 0, right = BigInteger::BASE;
@@ -500,23 +498,23 @@ BigInteger& operator/=(BigInteger& lhs, const BigInteger& rhs) {
     }
     int digit = left;
 
-    shift.digits_.resize(lhs.digitsSize() - calc.digitsSize() + 1, 0);
+    shift.digits_.resize(digitsSize() - calc.digitsSize() + 1, 0);
     BigInteger rhs_c;
     rhs_c.digits_.resize(shift.digitsSize() - 1 + rhs.digitsSize(), 0);
     std::copy(rhs.digits_.begin(), rhs.digits_.end(),
               rhs_c.digits_.begin() + static_cast<int>(shift.digitsSize() - 1));
     *(shift.digits_.end() - 1) = 1;
 
-    lhs -=
+    *this -=
         (l_sign ? abs(rhs_c.stupidMult(digit)) : -abs(rhs_c.stupidMult(digit)));
     ans.digits_.push_back(digit);
   }
   std::reverse(ans.digits_.begin(), ans.digits_.end());
   ans *= shift;
-  lhs.digits_ = ans.digits_;
-  lhs.is_positive_ = !(l_sign ^ r_sign);
-  lhs.fixDigits();
-  return lhs;
+  digits_ = ans.digits_;
+  is_positive_ = !(l_sign ^ r_sign);
+  fixDigits();
+  return *this;
 }
 
 BigInteger operator/(const BigInteger& lhs, const BigInteger& rhs) {
