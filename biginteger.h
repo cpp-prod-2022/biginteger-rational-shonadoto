@@ -27,23 +27,23 @@ class BigInteger {
 
   BigInteger();
   BigInteger(int number);
-  BigInteger(const BigInteger&);
+  BigInteger(const BigInteger&) = default;
   explicit BigInteger(const std::string&);
 
-  BigInteger operator+();
-  BigInteger operator-();
+  BigInteger operator+() const;
+  BigInteger operator-() const;
   BigInteger& operator++();
   BigInteger operator++(int);
   BigInteger& operator--();
   BigInteger operator--(int);
   friend void swap(BigInteger&, BigInteger&);
-  BigInteger& operator=(const BigInteger&);
-  friend BigInteger& operator+=(BigInteger&, const BigInteger&);
-  friend BigInteger& operator*=(BigInteger&, const BigInteger&);
+  BigInteger& operator=(const BigInteger&) = default;
+  BigInteger& operator+=(const BigInteger&);
+  BigInteger& operator-=(const BigInteger&);
+  BigInteger& operator*=(const BigInteger&);
+  //BigInteger& operator/=(const BigInteger&);
   friend BigInteger& operator/=(BigInteger&, const BigInteger&);
-
-  friend std::istream& operator>>(std::istream&, BigInteger&);
-  friend std::ostream& operator<<(std::ostream&, const BigInteger&);
+  BigInteger& operator%=(const BigInteger&);
 
   std::string toString(bool) const;
   const std::vector<int>& digits() const;
@@ -51,7 +51,7 @@ class BigInteger {
   void changeSign();
   bool isPositive() const;
   bool isZero() const;
-  bool absCmp(const BigInteger&) const;
+  std::strong_ordering absCmp(const BigInteger&) const;
   static BigInteger gcd(const BigInteger&, const BigInteger&);
   void shiftBase(int);
 
@@ -69,7 +69,7 @@ class Rational {
   Rational();
   Rational(int, int);
   Rational(const BigInteger&, const BigInteger&);
-  Rational(const Rational&);
+  Rational(const Rational&) = default;
 
   void changeSign();
   bool isPositive() const;
@@ -79,16 +79,20 @@ class Rational {
   Rational operator+();
   Rational operator-();
   friend void swap(Rational&, Rational&);
-  Rational& operator=(const Rational&);
-  friend Rational& operator+=(Rational&, const Rational&);
-  friend Rational& operator-=(Rational&, const Rational&);
-  friend Rational& operator*=(Rational&, const Rational&);
-  friend Rational& operator/=(Rational&, const Rational&);
+  Rational& operator=(const Rational&) = default;
+  Rational& operator+=(const Rational&);
+  Rational& operator-=(const Rational&);
+  Rational& operator*=(const Rational&);
+  Rational& operator/=(const Rational&);
 
   std::string toString() const;
   std::string asDecimal(size_t) const;
   explicit operator double() const;
 };
+
+BigInteger operator""_bi(unsigned long long number) {
+  return BigInteger(std::to_string(number));
+}
 
 BigInteger operator""_bi(const char* c_str) {
   std::string s = c_str;
@@ -183,9 +187,6 @@ BigInteger::BigInteger(int number)
       is_positive_(number >= 0) {
   fixDigits();
 }
-BigInteger::BigInteger(const BigInteger& other)
-    : digits_(std::vector<int>(other.digits_)),
-      is_positive_(other.is_positive_) {}
 
 BigInteger::BigInteger(const std::string& inp_str)
     : digits_(std::vector<int>()), is_positive_(true) {
@@ -193,13 +194,9 @@ BigInteger::BigInteger(const std::string& inp_str)
   std::string str = inp_str;
   buf[DEC_POW] = 0;
   size_t index = 0;
-  if (str[index] == '-') {
-    is_positive_ = false;
-    ++index;
-  } else if (str[index] == '+') {
-    is_positive_ = true;
-    ++index;
-  }
+
+  is_positive_ = (str[index] != '-');
+  index = (str[index] == '-') || (str[index] == '+');
   std::reverse(str.begin() + static_cast<int>(index), str.end());
 
   while (index < str.size()) {
@@ -248,22 +245,20 @@ void BigInteger::shiftBase(int shift_size) {
   }
   if (std::abs(shift_size) >= static_cast<int>(digitsSize())) {
     digits_.resize(1, 1);
-  } else {
-    std::reverse(digits_.begin(), digits_.end());
-    digits_.resize(digitsSize() + static_cast<size_t>(shift_size));
-    std::reverse(digits_.begin(), digits_.end());
+    return;
   }
+  std::reverse(digits_.begin(), digits_.end());
+  digits_.resize(digitsSize() + static_cast<size_t>(shift_size));
+  std::reverse(digits_.begin(), digits_.end());
 }
 
 BigInteger::operator bool() const { return !isZero(); }
 
 void BigInteger::fixDigits() {
-  // fix leading zeros
-  while (digitsSize() > 1 && digits_[digitsSize() - 1] == 0) {
+  while (digitsSize() > 1 && digits_.back() == 0) {
     digits_.pop_back();
   }
 
-  // change sign
   if (*(digits_.rbegin()) < 0) {
     is_positive_ = !is_positive_;
     for (size_t index = 0; index < digitsSize(); ++index) {
@@ -271,7 +266,6 @@ void BigInteger::fixDigits() {
     }
   }
 
-  // fix negatives
   for (size_t index = digitsSize() - 1; index > 0; --index) {
     if (digits_[index - 1] <= 0) {
       int add = std::abs(digits_[index - 1]) / BASE + 1;
@@ -280,7 +274,6 @@ void BigInteger::fixDigits() {
     }
   }
 
-  // fix big digits
   int go = 0, stay = 0;
   for (size_t index = 0; index < digitsSize(); ++index) {
     digits_[index] += go;
@@ -293,34 +286,28 @@ void BigInteger::fixDigits() {
     go /= BASE;
   }
 
-  // fix leading zeros
-  while (digitsSize() > 1 && digits_[digitsSize() - 1] == 0) {
+  while (digitsSize() > 1 && digits_.back() == 0) {
     digits_.pop_back();
   }
 
   if (digits_.size() == 1 && digits_[0] == 0) is_positive_ = true;
 }
 
-bool BigInteger::absCmp(const BigInteger& other) const {
-  if (digitsSize() > other.digitsSize()) return false;
-  if (digitsSize() < other.digitsSize()) return true;
+std::strong_ordering BigInteger::absCmp(const BigInteger& other) const {
+  auto size_ordering = digitsSize() <=> other.digitsSize();
+  if (size_ordering != std::strong_ordering::equal) return size_ordering;
   for (size_t index = digitsSize(); index > 0; --index) {
-    if (digits()[index - 1] > other.digits()[index - 1]) return false;
-    if (digits()[index - 1] < other.digits()[index - 1]) return true;
+    if (digits()[index - 1] > other.digits()[index - 1])
+      return std::strong_ordering::greater;
+    if (digits()[index - 1] < other.digits()[index - 1])
+      return std::strong_ordering::less;
   }
-  return false;
+  return std::strong_ordering::equal;
 }
 
 void swap(BigInteger& lhs, BigInteger& rhs) {
   std::swap(lhs.is_positive_, rhs.is_positive_);
   std::swap(lhs.digits_, rhs.digits_);
-}
-
-BigInteger& BigInteger::operator=(const BigInteger& other) {
-  if (this == &other) return *this;
-  BigInteger tmp = other;
-  swap(*this, tmp);
-  return *this;
 }
 
 bool operator==(const BigInteger& lhs, const BigInteger& rhs) {
@@ -334,51 +321,24 @@ bool operator==(const BigInteger& lhs, const BigInteger& rhs) {
   return true;
 }
 
-// bool operator!=(const BigInteger& lhs, const BigInteger& rhs) {
-//   return !(lhs == rhs);
-// }
-
 auto operator<=>(const BigInteger& lhs, const BigInteger& rhs) {
-  if (!lhs.isPositive() && rhs.isPositive()) return std::weak_ordering::less;
-  if (lhs.isPositive() && !rhs.isPositive()) return std::weak_ordering::greater;
-  if (lhs == rhs) return std::weak_ordering::equivalent;
-  bool abs_less = lhs.absCmp(rhs);
-  if (lhs.isPositive() && rhs.isPositive())
-    return abs_less ? std::weak_ordering::less : std::weak_ordering::greater;
-  return abs_less ? std::weak_ordering::greater : std::weak_ordering ::less;
+  if (lhs.isPositive() ^ rhs.isPositive())
+    return lhs.isPositive() <=> rhs.isPositive();
+  if (lhs == rhs) return std::strong_ordering::equal;
+  return (lhs.isPositive() && rhs.isPositive()) ? lhs.absCmp(rhs)
+                                                : 0 <=> lhs.absCmp(rhs);
 }
 
-// bool operator<(const BigInteger& lhs, const BigInteger& rhs) {
-//   if (!lhs.isPositive() && rhs.isPositive()) return true;
-//   if (lhs.isPositive() && !rhs.isPositive()) return false;
-//   bool abs_less = lhs.absCmp(rhs);
-//   if (lhs.isPositive() && rhs.isPositive()) return abs_less ? true : false;
-//   return abs_less ? false : true;
-// }
-
-// bool operator>(const BigInteger& lhs, const BigInteger& rhs) {
-//   return rhs < lhs;
-// }
-
-// bool operator<=(const BigInteger& lhs, const BigInteger& rhs) {
-//   return !(rhs > lhs);
-// }
-
-// bool operator>=(const BigInteger& lhs, const BigInteger& rhs) {
-//   return !(lhs < rhs);
-// }
-
-BigInteger& operator+=(BigInteger& lhs, const BigInteger& rhs) {
-  // // std::cerr << "+=";
-  for (size_t i = 0; i < rhs.digitsSize(); ++i) {
-    if (lhs.digitsSize() == i) {
-      lhs.digits_.push_back(0);
+BigInteger& BigInteger::operator+=(const BigInteger& other) {
+  for (size_t i = 0; i < other.digitsSize(); ++i) {
+    if (digitsSize() == i) {
+      digits_.push_back(0);
     }
-    lhs.digits_[i] += (lhs.is_positive_ == rhs.is_positive_ ? rhs.digits_[i]
-                                                            : -rhs.digits_[i]);
+    digits_[i] += (is_positive_ == other.is_positive_ ? other.digits_[i]
+                                                      : -other.digits_[i]);
   }
-  lhs.fixDigits();
-  return lhs;
+  fixDigits();
+  return *this;
 }
 
 BigInteger operator+(const BigInteger& lhs, const BigInteger& rhs) {
@@ -386,12 +346,11 @@ BigInteger operator+(const BigInteger& lhs, const BigInteger& rhs) {
   return tmp += rhs;
 }
 
-BigInteger& operator-=(BigInteger& lhs, const BigInteger& rhs) {
-  // // std::cerr << "-=";
-  lhs.changeSign();
-  lhs += rhs;
-  lhs.changeSign();
-  return lhs;
+BigInteger& BigInteger::operator-=(const BigInteger& other) {
+  changeSign();
+  *this += other;
+  changeSign();
+  return *this;
 }
 
 BigInteger operator-(const BigInteger& lhs, const BigInteger& rhs) {
@@ -399,8 +358,8 @@ BigInteger operator-(const BigInteger& lhs, const BigInteger& rhs) {
   return tmp -= rhs;
 }
 
-BigInteger BigInteger::operator+() { return *this; }
-BigInteger BigInteger::operator-() {
+BigInteger BigInteger::operator+() const { return *this; }
+BigInteger BigInteger::operator-() const {
   BigInteger tmp = *this;
   tmp.changeSign();
   return tmp;
@@ -426,14 +385,13 @@ BigInteger& BigInteger::operator--() {
 
 BigInteger BigInteger::operator--(int) {
   BigInteger tmp = *this;
-  this->operator--();
+  --(*this);
   return tmp;
 }
 
-BigInteger& operator*=(BigInteger& lhs, const BigInteger& rhs) {
-  // // std::cerr << "*=";
-  std::vector<std::complex<double>> left = lhs.convertDigits(),
-                                    right = rhs.convertDigits();
+BigInteger& BigInteger::operator*=(const BigInteger& other) {
+  std::vector<std::complex<double>> left = convertDigits(),
+                                    right = other.convertDigits();
   left.resize(std::max(left.size(), right.size()) * 2, 0.0);
   right.resize(left.size(), 0.0);
   BigInteger::fft(left);
@@ -442,22 +400,22 @@ BigInteger& operator*=(BigInteger& lhs, const BigInteger& rhs) {
     left[index] *= right[index];
   }
   BigInteger::fft(left, true);
-  lhs.digits_.resize(left.size());
+  digits_.resize(left.size());
   long long digit = 0;
   const double MAGIC_NUMBER = 0.5;
   for (size_t index = 0; index < left.size(); ++index) {
     digit +=
         static_cast<long long>(std::floor(left[index].real() + MAGIC_NUMBER));
-    lhs.digits_[index] = static_cast<int>(digit % BigInteger::BASE);
+    digits_[index] = static_cast<int>(digit % BigInteger::BASE);
     digit /= BigInteger::BASE;
   }
   if (digit) {
-    lhs.digits_.push_back(static_cast<int>(digit));
+    digits_.push_back(static_cast<int>(digit));
   }
 
-  lhs.is_positive_ = !(lhs.is_positive_ ^ rhs.is_positive_);
-  lhs.fixDigits();
-  return lhs;
+  is_positive_ = !(is_positive_ ^ other.is_positive_);
+  fixDigits();
+  return *this;
 }
 
 BigInteger operator*(const BigInteger& lhs, const BigInteger& rhs) {
@@ -467,7 +425,6 @@ BigInteger operator*(const BigInteger& lhs, const BigInteger& rhs) {
 }
 
 std::string BigInteger::toString(bool leading_zeros = false) const {
-  // // std::cerr << "toString";
   std::stringstream ss;
   if (!is_positive_) ss << "-";
   if (!leading_zeros) {
@@ -485,13 +442,11 @@ std::string BigInteger::toString(bool leading_zeros = false) const {
 }
 
 std::ostream& operator<<(std::ostream& os, const BigInteger& rhs) {
-  // // std::cerr << "<<";
   os << rhs.toString();
   return os;
 }
 
 std::istream& operator>>(std::istream& is, BigInteger& rhs) {
-  // // std::cerr << ">>";
   std::string str;
   is >> str;
   rhs = BigInteger(str);
@@ -508,7 +463,7 @@ BigInteger BigInteger::stupidMult(int number) const {
 BigInteger& operator/=(BigInteger& lhs, const BigInteger& rhs) {
   // // std::cerr << "/=";
   if (&lhs == &rhs) return lhs = 1;
-  if (lhs.absCmp(rhs)) return lhs = 0;
+  if (lhs.absCmp(rhs) == std::strong_ordering::less) return lhs = 0;
   if (rhs.isZero()) {
     throw "BigInteger: Division by zero.";
   }
@@ -519,12 +474,12 @@ BigInteger& operator/=(BigInteger& lhs, const BigInteger& rhs) {
   ans.digits_.resize(0);
   shift.digits_.resize(lhs.digitsSize() - rhs.digitsSize() + 1, 0);
 
-  while (!lhs.absCmp(rhs)) {
+  while (lhs.absCmp(rhs) >= 0) {
     calc.digits_.resize(rhs.digitsSize());
     std::copy(lhs.digits_.begin() + static_cast<int>(lhs.digitsSize()) -
                   static_cast<int>(calc.digitsSize()),
               lhs.digits_.end(), calc.digits_.begin());
-    while (calc.absCmp(rhs)) {
+    while (calc.absCmp(rhs) == std::strong_ordering::less) {
       calc.digits_.insert(
           calc.digits_.begin(),
           lhs.digits_[lhs.digitsSize() - calc.digitsSize() - 1]);
@@ -537,7 +492,7 @@ BigInteger& operator/=(BigInteger& lhs, const BigInteger& rhs) {
     int left = 0, right = BigInteger::BASE;
     while (left + 1 < right) {
       int mid = (left + right) / 2;
-      if (calc.absCmp(abs(rhs.stupidMult(mid)))) {
+      if (calc.absCmp(abs(rhs.stupidMult(mid))) == std::strong_ordering::less) {
         right = mid;
       } else {
         left = mid;
@@ -570,8 +525,8 @@ BigInteger operator/(const BigInteger& lhs, const BigInteger& rhs) {
   return tmp;
 }
 
-BigInteger& operator%=(BigInteger& lhs, const BigInteger& rhs) {
-  return lhs = lhs - lhs / rhs * rhs;
+BigInteger& BigInteger::operator%=(const BigInteger& other) {
+  return *this = *this - *this / other * other;
 }
 
 BigInteger operator%(const BigInteger& lhs, const BigInteger& rhs) {
@@ -592,9 +547,6 @@ Rational::Rational(const BigInteger& numerator,
   fixDividers();
 }
 
-Rational::Rational(const Rational& other)
-    : numerator_(other.numerator_), denominator_(other.denominator_) {}
-
 void Rational::changeSign() { numerator_.changeSign(); }
 
 bool Rational::isPositive() const { return numerator_.isPositive(); }
@@ -610,19 +562,13 @@ BigInteger BigInteger::gcd(const BigInteger& lhs, const BigInteger& rhs) {
 
 void Rational::fixDividers() {
   if (denominator_.isZero()) throw "Rational: Division by zero.";
-  bool is_positive = true;
-  if (!numerator_.isPositive()) {
-    is_positive ^= !numerator_.isPositive();
-    numerator_.changeSign();
-  }
   if (!denominator_.isPositive()) {
-    is_positive ^= !denominator_.isPositive();
+    numerator_.changeSign();
     denominator_.changeSign();
   }
   BigInteger gcd = BigInteger::gcd(numerator_, denominator_);
   numerator_ /= gcd;
   denominator_ /= gcd;
-  if (numerator_.isPositive() != is_positive) numerator_.changeSign();
 }
 
 Rational Rational::operator+() { return *this; }
@@ -637,106 +583,67 @@ void swap(Rational& lhs, Rational& rhs) {
   swap(lhs.denominator_, rhs.denominator_);
 }
 
-Rational& Rational::operator=(const Rational& other) {
-  // std::cerr << toString() << " = " << other.toString() << "\n";
-  Rational tmp = other;
-  swap(*this, tmp);
+Rational& Rational::operator+=(const Rational& other) {
+  numerator_ =
+      numerator_ * other.denominator_ + other.numerator_ * denominator_;
+  denominator_ *= other.denominator_;
+  fixDividers();
   return *this;
 }
 
-Rational& operator+=(Rational& lhs, const Rational& rhs) {
-  // std::cerr << lhs.toString() << " += " << rhs.toString() << "\n";
-  lhs.numerator_ =
-      lhs.numerator_ * rhs.denominator_ + rhs.numerator_ * lhs.denominator_;
-  lhs.denominator_ *= rhs.denominator_;
-  lhs.fixDividers();
-  return lhs;
-}
-
 Rational operator+(const Rational& lhs, const Rational& rhs) {
-  // // std::cerr << lhs.toString() << " + " << rhs.toString() << "\n";
   Rational tmp = lhs;
   tmp += rhs;
   return tmp;
 }
 
-Rational& operator-=(Rational& lhs, const Rational& rhs) {
-  // // std::cerr << lhs.toString() << " -= " << rhs.toString() << "\n";
-  lhs.numerator_ =
-      lhs.numerator_ * rhs.denominator_ - rhs.numerator_ * lhs.denominator_;
-  lhs.denominator_ *= rhs.denominator_;
-  lhs.fixDividers();
-  return lhs;
+Rational& Rational::operator-=(const Rational& other) {
+  numerator_ =
+      numerator_ * other.denominator_ - other.numerator_ * denominator_;
+  denominator_ *= other.denominator_;
+  fixDividers();
+  return *this;
 }
 
 Rational operator-(const Rational& lhs, const Rational& rhs) {
-  // // std::cerr << lhs.toString() << " - " << rhs.toString() << "\n";
   Rational tmp = lhs;
   return tmp -= rhs;
 }
 
-Rational& operator*=(Rational& lhs, const Rational& rhs) {
-  // // std::cerr << "*=\n";
-  lhs.numerator_ *= rhs.numerator_;
-  lhs.denominator_ *= rhs.denominator_;
-  lhs.fixDividers();
-  return lhs;
+Rational& Rational::operator*=(const Rational& other) {
+  numerator_ *= other.numerator_;
+  denominator_ *= other.denominator_;
+  fixDividers();
+  return *this;
 }
 
 Rational operator*(const Rational& lhs, const Rational& rhs) {
-  // // std::cerr << lhs.toString() << " *= " << rhs.toString() << "\n";
   Rational tmp = lhs;
   return tmp *= rhs;
 }
 
-Rational& operator/=(Rational& lhs, const Rational& rhs) {
-  // std::cerr << lhs.toString() << " /= " << rhs.toString() << "\n";
-  if (&lhs == &rhs) return lhs = 1;
-  lhs.numerator_ *= rhs.denominator_;
-  lhs.denominator_ *= rhs.numerator_;
-  lhs.fixDividers();
-  return lhs;
+Rational& Rational::operator/=(const Rational& other) {
+  if (this == &other) return *this = 1;
+  numerator_ *= other.denominator_;
+  denominator_ *= other.numerator_;
+  fixDividers();
+  return *this;
 }
 
 Rational operator/(const Rational& lhs, const Rational& rhs) {
-  // std::cerr << lhs.toString() << " / " << rhs.toString() << "\n";
   Rational tmp = lhs;
   return tmp /= rhs;
 }
 
 bool operator==(const Rational& lhs, const Rational& rhs) {
-  // std::cerr << lhs.toString() << " == " << rhs.toString() << "\n";
-
   return lhs.numerator() == rhs.numerator() &&
          lhs.denominator() == rhs.denominator();
 }
 
-// bool operator!=(const Rational& lhs, const Rational& rhs) {
-//   return !(lhs == rhs);
-// }
-
 auto operator<=>(const Rational& lhs, const Rational& rhs) {
-  // std::cerr << lhs.toString() << " <=> " << rhs.toString() << "\n";
-
   return (lhs.numerator() * rhs.denominator()) <=>
          (rhs.numerator() * lhs.denominator());
 }
-
-// bool operator<(const Rational& lhs, const Rational& rhs) {
-//   return (lhs.numerator() * rhs.denominator()) <
-//          (rhs.numerator() * lhs.denominator());
-// }
-
-// bool operator>(const Rational& lhs, const Rational& rhs) { return rhs < lhs;
-// }
-
-// bool operator<=(const Rational& lhs, const Rational& rhs) {
-//   return !(lhs > rhs);
-// }
-
-// bool operator>=(const Rational& lhs, const Rational& rhs) {
-//   return !(lhs < rhs);
-// }
 
 std::string Rational::toString() const {
   return numerator_.toString() +
@@ -744,7 +651,6 @@ std::string Rational::toString() const {
 }
 
 std::string Rational::asDecimal(size_t precision) const {
-  // std::cerr << toString() << " asDecimal\n";
   if (numerator_.isZero()) return "0." + std::string(precision, '0');
   std::string ret = "";
   BigInteger part = abs(numerator_) / denominator_;
@@ -766,6 +672,7 @@ std::string Rational::asDecimal(size_t precision) const {
   return ret;
 }
 
-Rational::operator double() const { 
-    const size_t precision = 40;
-    return std::stod(asDecimal(precision)); }
+Rational::operator double() const {
+  const size_t precision = 40;
+  return std::stod(asDecimal(precision));
+}
